@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <style>
+            .action {
+                margin: 10px;
+            }
+        </style>
+        <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+        <script>
+            $(function() {
+                $("#addPlaylistForm").on("submit", function (e) {
+                    e.preventDefault()
+                    $.ajax({
+                        "method": "POST",
+                        "url": "/api/addUrl",
+                        "dataType": "json",
+                        "data": {
+                            "url": $("#addPlaylistForm [name=url]").val()
+                        }
+                    }).done(regenQueue())
+                })
+
+                regenQueue()
+                regenHistory()
+                setInterval(function () {regenQueue()}, 10 * 1000)
+
+                function regenQueue() {
+                    $.ajax({
+                        "method": "GET",
+                        "url": "/api/getQueue",
+                        "dataType": "json"
+                    }).done(function (data) {
+                        queue = data["queue"]
+                        $("#queue").empty()
+                        for (i in queue) {
+                            $("#queue").append(
+                                $("<li>")
+                                .text(queue[i])
+                                .attr("url", queue[i])
+                                .append(
+                                    $("<a href=>")
+                                    .addClass("action")
+                                    .text("Remove")
+                                    .click(function (e) {
+                                        e.preventDefault()
+                                        console.log()
+                                        $.ajax({
+                                            "method": "DELETE",
+                                            "url": "/api/removeItem",
+                                            "data": {
+                                                "url": $(e.target.parentElement).attr("url")
+                                            }
+                                        }).done(regenQueue())
+                                    })
+                                )
+                            )
+                        }
+                    })
+                }
+
+                function regenHistory() {
+                    $.ajax({
+                        "method": "GET",
+                        "url": "/api/getHistory",
+                        "dataType": "json"
+                    }).done(function (data) {
+                        plHistory = data["history"]
+                        $("#history").empty()
+                        for (plUrl in plHistory) {
+                            $("#history").append(
+                                $("<li>")
+                                .text(plHistory[plUrl]["plName"])
+                                .attr("url", plUrl)
+                                .append(
+                                    $("<a href=>")
+                                    .addClass("action")
+                                    .text("Add")
+                                    .click(function (e) {
+                                        e.preventDefault()
+                                        console.log()
+                                        $.ajax({
+                                            "method": "POST",
+                                            "url": "/api/addUrl",
+                                            "data": {
+                                                "url": $(e.target.parentElement).attr("url")
+                                            }
+                                        })
+                                    })
+                                )
+                            )
+                        }
+                    })
+                }
+            })
+        </script>
+        <title>Document</title>
+    </head>
+    <body>
+        <h1>Add playlist</h1>
+        <form action="" id="addPlaylistForm">
+            <label>URL: <input type="text" name="url" id=""></label>
+            <input type="submit" value="Add">
+        </form>
+        <h1>Queue</h1>
+        <ol id="queue">
+
+        </ol>
+        <h1>History</h1>
+        <ol id="history">
+
+        </ol>
+    </body>
+</html>
