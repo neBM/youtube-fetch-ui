@@ -194,12 +194,12 @@ class DownloadWorker:
         p.wait()
         
 try:
-    subprocess.Popen(["ffmpeg", "-version"], stdout=FNULL).wait()
+    subprocess.Popen(["ffmpeg", "-version"], stdout=subprocess.DEVNULL).wait()
 except FileNotFoundError:
     print("Missing ffmpeg!")
     quit(-1)
 try:
-    subprocess.Popen(["youtube-dl", "--version"], stdout=FNULL).wait()
+    subprocess.Popen(["youtube-dl", "--version"], stdout=subprocess.DEVNULL).wait()
 except FileNotFoundError:
     print("Missing youtube-dl!")
     quit(-1)
