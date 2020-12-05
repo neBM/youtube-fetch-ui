@@ -64,7 +64,7 @@ class API:
         try:
             delegate = API.parse(method, urlcomps)
             return delegate(urlcomps, qs)
-        except Exception as e:
+        except Exception:
             return (
                 http.HTTPStatus.INTERNAL_SERVER_ERROR,
                 {
