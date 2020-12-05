@@ -1,5 +1,7 @@
 import threading, http.server, urllib.parse, json, traceback, subprocess, logging, os, csv
+import google_auth_oauthlib.flow
 import googleapiclient.discovery
+import googleapiclient.errors
 
 queue = []
 
@@ -99,7 +101,6 @@ class API:
 
     @staticmethod
     def getPlaylistInfo(url):
-        plid = urllib.parse.parse_qs(urllib.parse.urlparse(url)[4])["list"][0]
 
         # Disable OAuthlib's HTTPS verification when running locally.
         # *DO NOT* leave this option enabled in production.
@@ -107,9 +108,13 @@ class API:
 
         api_service_name = "youtube"
         api_version = "v3"
-        DEVELOPER_KEY = "AIzaSyBrJzrxcce04gHPuBTn_8_Nb4OSkPbS_qU"
 
-        youtube = googleapiclient.discovery.build(api_service_name, api_version, developerKey = DEVELOPER_KEY)
+        with open("./apiKey.txt", "r") as f:
+            key = f.readline()
+
+        # Get credentials and create an API client
+        youtube = googleapiclient.discovery.build(
+            api_service_name, api_version, developerKey=key, cache_discovery=False)
 
         request = youtube.playlists().list(
             part="snippet",
@@ -140,7 +145,7 @@ class API:
         @staticmethod
         def addUrl(urlcomps, qs):
             url = qs["url"][0]
-            response = API.getPlaylistInfo(url)
+            response = API.getPlaylistInfo(urllib.parse.parse_qs(urllib.parse.urlparse(url)[4])["list"][0])
             plName = response['items'][0]['snippet']['title']
             chName = response['items'][0]['snippet']['channelTitle']
             DownloadWorker.append(url, plName, chName)
@@ -197,6 +202,9 @@ try:
     subprocess.Popen(["youtube-dl", "--version"], stdout=FNULL).wait()
 except:
     print("Missing youtube-dl!")
+    quit(-1)
+if not os.path.exists("./apiKey.txt"):
+    print("Missing apiKey.txt!")
     quit(-1)
 
 logging.basicConfig(level=logging.DEBUG)
