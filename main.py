@@ -1,4 +1,4 @@
-import threading, http.server, urllib.parse, json, traceback, subprocess, logging, os, csv
+import threading, http.server, urllib.parse, json, traceback, subprocess, logging, os, csv, getopt, sys
 import googleapiclient.discovery
 import googleapiclient.errors
 
@@ -185,7 +185,7 @@ class DownloadWorker:
                 "youtube-dl",
                 "--yes-playlist",
                 "--cookies", "cookies.txt",
-                "-o", "../../media/YouTube/[%(uploader_id)s]/[%(playlist_id)s]/[%(id)s].%(ext)s",
+                "-o", outputPath,
                 "-f", "bestvideo+bestaudio",
                 url
             ]
@@ -205,6 +205,18 @@ except FileNotFoundError:
 if not os.path.exists("./apiKey.txt"):
     print("Missing apiKey.txt!")
     quit(-1)
+
+exportDir = "./media/"
+outputFormat = "[%(uploader_id)s]/[%(playlist_id)s]/[%(id)s].%(ext)s"
+opts, args = getopt.getopt(sys.argv[1:], "e:f:")
+for opt, arg in opts:
+    if opt == "-e":
+        exportDir = arg
+    elif opt == "-f":
+        outputFormat = arg
+
+outputPath = os.path.join(exportDir, outputFormat)
+print("Using: {}".format(outputPath))
 
 logging.basicConfig(level=logging.DEBUG)
 
