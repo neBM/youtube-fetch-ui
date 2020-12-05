@@ -96,7 +96,7 @@ class API:
                     "removeItem": cls.Commands.removeItem
                 }
             }[method][path[1]]
-        except KeyError as e:
+        except KeyError:
             raise Exception("Command not found!")
 
     @staticmethod
@@ -195,12 +195,12 @@ class DownloadWorker:
         
 try:
     subprocess.Popen(["ffmpeg", "-version"], stdout=FNULL).wait()
-except:
+except FileNotFoundError:
     print("Missing ffmpeg!")
     quit(-1)
 try:
     subprocess.Popen(["youtube-dl", "--version"], stdout=FNULL).wait()
-except:
+except FileNotFoundError:
     print("Missing youtube-dl!")
     quit(-1)
 if not os.path.exists("./apiKey.txt"):
