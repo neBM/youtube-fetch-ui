@@ -100,7 +100,7 @@ class API:
             raise Exception("Command not found!")
 
     @staticmethod
-    def getPlaylistInfo(url):
+    def getPlaylistInfo(plid):
 
         # Disable OAuthlib's HTTPS verification when running locally.
         # *DO NOT* leave this option enabled in production.
