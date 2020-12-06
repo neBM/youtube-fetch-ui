@@ -240,7 +240,6 @@ class DownloadWorker:
                 vid
             ]
         )
-        p.wait()
         
 try:
     subprocess.Popen(["ffmpeg", "-version"], stdout=subprocess.DEVNULL).wait()
@@ -276,3 +275,6 @@ threading.Thread(target=httpServerWorker.run, name="HttpServerWorker").start()
 
 downloadWorker = DownloadWorker()
 threading.Thread(target=downloadWorker.run, name="DownloadWorker").start()
+        returnCode = p.wait()
+        if returnCode != 0:
+            logging.error("Non 0 return code!")
