@@ -3,6 +3,7 @@ import googleapiclient.discovery
 import googleapiclient.errors
 
 queue = dict()
+outputPath = "./media/[%(uploader_id)s]/[%(playlist_id)s]/[%(id)s].%(ext)s"
 
 class HttpServerWorker:
     def run(self):
@@ -240,41 +241,42 @@ class DownloadWorker:
                 vid
             ]
         )
-        
-try:
-    subprocess.Popen(["ffmpeg", "-version"], stdout=subprocess.DEVNULL).wait()
-except FileNotFoundError:
-    print("Missing ffmpeg!")
-    quit(-1)
-try:
-    subprocess.Popen(["youtube-dl", "--version"], stdout=subprocess.DEVNULL).wait()
-except FileNotFoundError:
-    print("Missing youtube-dl!")
-    quit(-1)
-if not os.path.exists("./apiKey.txt"):
-    print("Missing apiKey.txt!")
-    quit(-1)
-
-logging.basicConfig(level=logging.DEBUG)
-
-exportDir = "./media/"
-outputFormat = "[%(uploader_id)s]/[%(playlist_id)s]/[%(id)s].%(ext)s"
-opts, args = getopt.getopt(sys.argv[1:], "e:f:")
-for opt, arg in opts:
-    if opt == "-e":
-        exportDir = arg
-    elif opt == "-f":
-        outputFormat = arg
-
-outputPath = os.path.join(exportDir, outputFormat)
-outputPath = os.path.abspath(outputPath)
-logging.info("Using: {}".format(outputPath))
-
-httpServerWorker = HttpServerWorker()
-threading.Thread(target=httpServerWorker.run, name="HttpServerWorker").start()
-
-downloadWorker = DownloadWorker()
-threading.Thread(target=downloadWorker.run, name="DownloadWorker").start()
         returnCode = p.wait()
         if returnCode != 0:
             logging.error("Non 0 return code!")
+
+if __name__ == "__main__":
+    try:
+        subprocess.Popen(["ffmpeg", "-version"], stdout=subprocess.DEVNULL).wait()
+    except FileNotFoundError:
+        print("Missing ffmpeg!")
+        quit(-1)
+    try:
+        subprocess.Popen(["youtube-dl", "--version"], stdout=subprocess.DEVNULL).wait()
+    except FileNotFoundError:
+        print("Missing youtube-dl!")
+        quit(-1)
+    if not os.path.exists("./apiKey.txt"):
+        print("Missing apiKey.txt!")
+        quit(-1)
+
+    logging.basicConfig(level=logging.DEBUG)
+
+    exportDir = "./media/"
+    outputFormat = "[%(uploader_id)s]/[%(playlist_id)s]/[%(id)s].%(ext)s"
+    opts, args = getopt.getopt(sys.argv[1:], "e:f:")
+    for opt, arg in opts:
+        if opt == "-e":
+            exportDir = arg
+        elif opt == "-f":
+            outputFormat = arg
+
+    outputPath = os.path.join(exportDir, outputFormat)
+    outputPath = os.path.abspath(outputPath)
+    logging.info("Using: {}".format(outputPath))
+
+    httpServerWorker = HttpServerWorker()
+    threading.Thread(target=httpServerWorker.run, name="HttpServerWorker").start()
+
+    downloadWorker = DownloadWorker()
+    threading.Thread(target=downloadWorker.run, name="DownloadWorker").start()
