@@ -2,7 +2,7 @@ import threading, http.server, urllib.parse, json, traceback, subprocess, loggin
 import googleapiclient.discovery
 import googleapiclient.errors
 
-queue = []
+queue = dict()
 
 class HttpServerWorker:
     def run(self):
@@ -99,8 +99,7 @@ class API:
             raise Exception("Command not found!")
 
     @staticmethod
-    def getPlaylistInfo(plid):
-
+    def googleApiAuth():
         # Disable OAuthlib's HTTPS verification when running locally.
         # *DO NOT* leave this option enabled in production.
         os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "1"
@@ -112,16 +111,54 @@ class API:
             key = f.readline()
 
         # Get credentials and create an API client
-        youtube = googleapiclient.discovery.build(
-            api_service_name, api_version, developerKey=key, cache_discovery=False)
+        return googleapiclient.discovery.build(api_service_name, api_version, developerKey=key, cache_discovery=False)
+
+
+    @staticmethod
+    def getVideos(plid):
+        youtube = API.googleApiAuth()
+
+        request = youtube.playlistItems().list(
+            part="contentDetails",
+            playlistId=plid
+        )
+
+        response = request.execute()
+
+        return response["items"]
+
+    @staticmethod
+    def getVideo(vid):
+        youtube = API.googleApiAuth()
+
+        request = youtube.videos().list(
+            part="snippet",
+            id=",".join(vid)
+        )
+
+
+        response = request.execute()
+
+        return {x["id"]: x for x in response["items"]}
+
+    @staticmethod
+    def getPlaylistInfo(plid):
+        youtube = API.googleApiAuth()
 
         request = youtube.playlists().list(
             part="snippet",
             id=plid
         )
+
         response = request.execute()
 
-        return response
+        return response["items"][0]
+
+    @staticmethod
+    def writeHistory(url, name, chname):
+        writer = csv.writer(open("history.csv", "a", newline="", encoding='utf-8'))
+        writer.writerow([url, name, chname])
+
 
     class Commands:
         @staticmethod
@@ -144,15 +181,29 @@ class API:
         @staticmethod
         def addUrl(urlcomps, qs):
             url = qs["url"][0]
-            response = API.getPlaylistInfo(urllib.parse.parse_qs(urllib.parse.urlparse(url)[4])["list"][0])
-            plName = response['items'][0]['snippet']['title']
-            chName = response['items'][0]['snippet']['channelTitle']
-            DownloadWorker.append(url, plName, chName)
+            ytqs = urllib.parse.parse_qs(urllib.parse.urlparse(url)[4])
+            if "v" in ytqs.keys():
+                vid = ytqs["v"][0]
+                vinfo = API.getVideo([vid])[vid]
+                videos = {vinfo["id"]: vinfo}
+                API.writeHistory(url, vinfo["snippet"]["title"], vinfo["snippet"]["channelTitle"])
+            elif "list" in ytqs.keys():
+                plid = ytqs["list"][0]
+                plir = API.getVideos(plid)
+                videos = API.getVideo([x["contentDetails"]["videoId"] for x in plir])
+                
+                
+                plinfo = API.getPlaylistInfo(plid)
+                API.writeHistory(url, plinfo["snippet"]["title"], None)
+            else:
+                raise Exception("Missing list or video id in {}".format(ytqs.keys()))
+
+            for vid in videos: DownloadWorker.append(videos[vid]["id"], videos[vid]["snippet"]["title"])
             return (http.HTTPStatus.OK, {"content-type": "application/json"}, json.dumps({"status": "OK"}))
 
         @staticmethod
         def removeItem(urlcomps, qs):
-            queue.remove(qs["url"][0])
+            DownloadWorker.remove(qs["vid"][0])
             return (http.HTTPStatus.OK, {"content-type": "application/json"}, json.dumps({"status": "OK"}))
 
 class DownloadWorker:
@@ -163,23 +214,22 @@ class DownloadWorker:
                 while len(queue) <= 0:
                     logging.debug("Download worker waiting")
                     self.c.wait()
-            url = queue.pop(0)
-            logging.debug("Downloading {}".format(url))
-            self.doWork(url)
+            vid = list(queue.keys())[0]
+            name = queue.pop(vid)
+            logging.debug("Downloading {}".format(name))
+            self.doWork(vid)
 
     @classmethod
-    def append(cls, url, plName, chName):
-        writer = csv.writer(open("history.csv", "a", newline="", encoding='utf-8'))
-        writer.writerow([url, plName, chName])
-        queue.append(url)
+    def append(cls, vid, name):
+        queue[vid] = name
         with cls.c:
             cls.c.notify()
 
     @classmethod
-    def remove(cls, url):
-        queue.remove(url)
+    def remove(cls, vid):
+        del queue[vid]
     
-    def doWork(self, url):
+    def doWork(self, vid):
         p = subprocess.Popen(
             [
                 "youtube-dl",
@@ -187,7 +237,7 @@ class DownloadWorker:
                 "--cookies", "cookies.txt",
                 "-o", outputPath,
                 "-f", "bestvideo+bestaudio",
-                url
+                vid
             ]
         )
         p.wait()

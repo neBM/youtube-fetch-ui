@@ -38,11 +38,11 @@
                     }).done(function (data) {
                         queue = data["queue"]
                         $("#queue").empty()
-                        for (i in queue) {
+                        for (vid in queue) {
                             $("#queue").append(
                                 $("<li>")
-                                .text(queue[i])
-                                .attr("url", queue[i])
+                                .text(queue[vid])
+                                .attr("vid", vid)
                                 .append(
                                     $("<a href=>")
                                     .addClass("action")
@@ -54,7 +54,7 @@
                                             "method": "DELETE",
                                             "url": "/api/removeItem",
                                             "data": {
-                                                "url": $(e.target.parentElement).attr("url")
+                                                "vid": $(e.target.parentElement).attr("vid")
                                             }
                                         }).done(regenQueue())
                                     })
