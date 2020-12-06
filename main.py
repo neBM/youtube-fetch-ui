@@ -206,6 +206,8 @@ if not os.path.exists("./apiKey.txt"):
     print("Missing apiKey.txt!")
     quit(-1)
 
+logging.basicConfig(level=logging.DEBUG)
+
 exportDir = "./media/"
 outputFormat = "[%(uploader_id)s]/[%(playlist_id)s]/[%(id)s].%(ext)s"
 opts, args = getopt.getopt(sys.argv[1:], "e:f:")
