@@ -216,9 +216,8 @@ for opt, arg in opts:
         outputFormat = arg
 
 outputPath = os.path.join(exportDir, outputFormat)
-print("Using: {}".format(outputPath))
-
-logging.basicConfig(level=logging.DEBUG)
+outputPath = os.path.abspath(outputPath)
+logging.info("Using: {}".format(outputPath))
 
 httpServerWorker = HttpServerWorker()
 threading.Thread(target=httpServerWorker.run, name="HttpServerWorker").start()
