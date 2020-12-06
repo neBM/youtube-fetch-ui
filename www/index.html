@@ -20,7 +20,10 @@
                         "data": {
                             "url": $("#addPlaylistForm [name=url]").val()
                         }
-                    }).done(regenQueue())
+                    }).done(function () {
+                        regenQueue()
+                        $("#addPlaylistForm [name=url]").val("")
+                    })
                 })
 
                 regenQueue()
