@@ -1,6 +1,5 @@
 import threading, http.server, urllib.parse, json, traceback, subprocess, logging, os, csv, getopt, sys
-import googleapiclient.discovery
-import googleapiclient.errors
+import googleapiclient.discovery, googleapiclient.errors
 
 queue = dict()
 outputPath = "./media/[%(uploader_id)s]/[%(playlist_id)s]/[%(id)s].%(ext)s"
@@ -51,9 +50,9 @@ class HttpServerWorker:
                 qs = urllib.parse.parse_qs(self.rfile.read(int(self.headers.get("content-length"))).decode())
             elif method == "DELETE":
                 qs = urllib.parse.parse_qs(self.rfile.read(int(self.headers.get("content-length"))).decode())
-            responseCode, headers, data = API.processRequest(method, urlcomps, qs)
+            response_code, headers, data = API.process_request(method, urlcomps, qs)
 
-            self.send_response(responseCode)
+            self.send_response(response_code)
             for header in headers:
                 self.send_header(header, headers[header])
             self.end_headers()
@@ -61,7 +60,7 @@ class HttpServerWorker:
 
 class API:
     @staticmethod
-    def processRequest(method, urlcomps, qs):
+    def process_request(method, urlcomps, qs):
         try:
             delegate = API.parse(method, urlcomps)
             return delegate(urlcomps, qs)
@@ -86,21 +85,21 @@ class API:
             path = urlcomps[2].split("/")[1:]
             return {
                 "GET": {
-                    "getQueue": cls.Commands.getQueue,
-                    "getHistory": cls.Commands.getHistory
+                    "getQueue": cls.Commands.get_queue,
+                    "getHistory": cls.Commands.get_history
                 },
                 "POST": {
-                    "addUrl": cls.Commands.addUrl
+                    "addUrl": cls.Commands.add_url
                 },
                 "DELETE": {
-                    "removeItem": cls.Commands.removeItem
+                    "removeItem": cls.Commands.remove_item
                 }
             }[method][path[1]]
         except KeyError:
-            raise Exception("Command not found!")
+            raise ValueError("Command not found!")
 
     @staticmethod
-    def googleApiAuth():
+    def google_api_auth():
         # Disable OAuthlib's HTTPS verification when running locally.
         # *DO NOT* leave this option enabled in production.
         os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "1"
@@ -116,8 +115,8 @@ class API:
 
 
     @staticmethod
-    def getVideos(plid):
-        youtube = API.googleApiAuth()
+    def get_videos(plid):
+        youtube = API.google_api_auth()
 
         request = youtube.playlistItems().list(
             part="contentDetails",
@@ -129,8 +128,8 @@ class API:
         return response["items"]
 
     @staticmethod
-    def getVideo(vid):
-        youtube = API.googleApiAuth()
+    def get_video(vid):
+        youtube = API.google_api_auth()
 
         request = youtube.videos().list(
             part="snippet",
@@ -143,8 +142,8 @@ class API:
         return {x["id"]: x for x in response["items"]}
 
     @staticmethod
-    def getPlaylistInfo(plid):
-        youtube = API.googleApiAuth()
+    def get_playlist_info(plid):
+        youtube = API.google_api_auth()
 
         request = youtube.playlists().list(
             part="snippet",
@@ -156,20 +155,20 @@ class API:
         return response["items"][0]
 
     @staticmethod
-    def writeHistory(url, name, chname):
+    def write_history(url, name, chname):
         writer = csv.writer(open("history.csv", "a", newline="", encoding='utf-8'))
         writer.writerow([url, name, chname])
 
 
     class Commands:
         @staticmethod
-        def getQueue(urlcomps, qs):
+        def get_queue(urlcomps, qs):
             return (http.HTTPStatus.OK, {
                 "content-type": "application/json"
             }, json.dumps({"status": "OK", "queue": queue}))
 
         @staticmethod
-        def getHistory(urlcomps, qs):
+        def get_history(urlcomps, qs):
             return (http.HTTPStatus.OK, {
                 "content-type": "application/json"
             }, json.dumps({"status": "OK", "history": {
@@ -180,30 +179,30 @@ class API:
             }}))
 
         @staticmethod
-        def addUrl(urlcomps, qs):
+        def add_url(urlcomps, qs):
             url = qs["url"][0]
             ytqs = urllib.parse.parse_qs(urllib.parse.urlparse(url)[4])
             if "v" in ytqs.keys():
                 vid = ytqs["v"][0]
-                vinfo = API.getVideo([vid])[vid]
+                vinfo = API.get_video([vid])[vid]
                 videos = {vinfo["id"]: vinfo}
-                API.writeHistory(url, vinfo["snippet"]["title"], vinfo["snippet"]["channelTitle"])
+                API.write_history(url, vinfo["snippet"]["title"], vinfo["snippet"]["channelTitle"])
             elif "list" in ytqs.keys():
                 plid = ytqs["list"][0]
-                plir = API.getVideos(plid)
-                videos = API.getVideo([x["contentDetails"]["videoId"] for x in plir])
+                plir = API.get_videos(plid)
+                videos = API.get_video([x["contentDetails"]["videoId"] for x in plir])
                 
                 
-                plinfo = API.getPlaylistInfo(plid)
-                API.writeHistory(url, plinfo["snippet"]["title"], None)
+                plinfo = API.get_playlist_info(plid)
+                API.write_history(url, plinfo["snippet"]["title"], None)
             else:
-                raise Exception("Missing list or video id in {}".format(ytqs.keys()))
+                raise ValueError("Missing list or video id in {}".format(ytqs.keys()))
 
             for vid in videos: DownloadWorker.append(videos[vid]["id"], videos[vid]["snippet"]["title"])
             return (http.HTTPStatus.OK, {"content-type": "application/json"}, json.dumps({"status": "OK"}))
 
         @staticmethod
-        def removeItem(urlcomps, qs):
+        def remove_item(urlcomps, qs):
             DownloadWorker.remove(qs["vid"][0])
             return (http.HTTPStatus.OK, {"content-type": "application/json"}, json.dumps({"status": "OK"}))
 
@@ -218,7 +217,7 @@ class DownloadWorker:
             vid = list(queue.keys())[0]
             name = queue.pop(vid)
             logging.debug("Downloading {}".format(name))
-            self.doWork(vid)
+            self.do_work(vid)
 
     @classmethod
     def append(cls, vid, name):
@@ -230,7 +229,7 @@ class DownloadWorker:
     def remove(cls, vid):
         del queue[vid]
     
-    def doWork(self, vid):
+    def do_work(self, vid):
         p = subprocess.Popen(
             [
                 "youtube-dl",
@@ -241,8 +240,8 @@ class DownloadWorker:
                 vid
             ]
         )
-        returnCode = p.wait()
-        if returnCode != 0:
+        return_code = p.wait()
+        if return_code != 0:
             logging.error("Non 0 return code!")
 
 if __name__ == "__main__":
